@@ -29,7 +29,15 @@ function updateUserMessages(from, message) {
   usrMsg.update((users) => {
     return users.map((user) => {
       if (user.username === from) {
-        user.messages.push({ text: message.text, sender: 'uname' });
+        if(message.text){
+          user.messages.push({ text: message.text, sender: 'uname' });
+        }
+        if(message.audio){
+          user.messages.push({ audio: message.audio, sender: 'uname' });
+        }
+        if(message.image){
+          user.messages.push({ image: message.image, sender: 'uname' });
+        }
       }
       return user;
     });
