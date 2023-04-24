@@ -1,44 +1,115 @@
 <script>
-	import {onMount} from 'svelte';
-	import Chat from './components/Chat.svelte'
-	import Users from './components/Users.svelte';
-	import UsernameModal from './components/UsernameModal.svelte';
+  import { onMount } from "svelte";
+  import Chat from "./components/Chat.svelte";
+  import Users from "./components/Users.svelte";
+  import UsernameModal from "./components/UsernameModal.svelte";
+  import { socketStore, userList, usrMsg, admin} from "../scripts/stores";
+  import { getUsers, registerUsername } from "../scripts/utils";
 
   let username;
-  let showModal = true;
+  $: showModal = false;
+  let socket;
 
-  onMount(() => {
-    const storedUsername = localStorage.getItem('username');
+  function connectWebSocket(url) {
+    return new Promise((resolve, reject) => {
+      const socket = new WebSocket(url);
+
+      socket.addEventListener("open", () => {
+        resolve(socket);
+      });
+
+      socket.addEventListener("error", (error) => {
+        reject(error);
+      });
+    });
+  }
+
+  // Update usrMsg store by finding the user with the specified username and appending the message
+function updateUserMessages(from, message) {
+  usrMsg.update((users) => {
+    return users.map((user) => {
+      if (user.username === from) {
+        user.messages.push({ text: message.text, sender: 'uname' });
+      }
+      return user;
+    });
+  });
+}
+
+  onMount(async () => {
+    try {
+      const serverUrl = "ws://localhost:3000";
+      socket = await connectWebSocket(serverUrl);
+      ready = true;
+    } catch (error) {
+      console.error("WebSocket connection error:", error);
+    }
+
+    socketStore.set(socket);
+
+    socketStore.subscribe(($socket) => {
+      socket = $socket;
+
+      if (getUsers(socket)) {
+        socket.addEventListener("message", (event) => {
+          console.log("Message from server: ", event.data);
+          const data = JSON.parse(event.data);
+
+          if (data.type == "userList") {
+            const result = data.users.map((username, index) => {
+              return { id: index + 1, title: username };
+            });
+            userList.set(result);
+            const msg = data.users.map((username) => {
+              return { username, messages: [] };
+            });
+            usrMsg.set(msg);
+
+          }
+          if(data.type=="dm"){
+            updateUserMessages(data.from, data.message);
+          }
+        });
+      }
+    });
+
+    const storedUsername = localStorage.getItem("username");
+
     if (storedUsername) {
       username = storedUsername;
+      registerUsername(socket, username);
+      admin.set(username);
       showModal = false;
+    } else {
+      showModal = true;
     }
+    let users = [];
   });
 
   function onUsernameSet() {
-    username = localStorage.getItem('username');
+    username = localStorage.getItem("username");
+    admin.set(username);
     showModal = false;
   }
 </script>
 
 <main>
-	<div class="app-container">
-		<Users />
-		<div class="chat-container">
-		  <Chat />
-		</div>
-		{#if showModal}
-    <UsernameModal on:usernameSet="{onUsernameSet}" />
-  {/if}
-	</div>
-	
+  <div class="app-container">
+    <Users />
+    <div class="chat-container">
+      <Chat />
+    </div>
+    {#if showModal}
+      <UsernameModal on:usernameSet={onUsernameSet} />
+    {/if}
+  </div>
 </main>
 
 <style>
-main{
-	background-color: #e0e0e0;
-}
-.app-container {
+  main {
+    background-color: #e0e0e0;
+  }
+  .app-container {
     display: flex;
     height: 100vh;
   }
@@ -77,12 +148,11 @@ main{
     --ticker-height: 60px;
     --grid-gap: 1px;
   }
-  
+
   :global(.pos) {
     color: var(--green);
   }
   :global(.neg) {
     color: var(--red);
   }
-  
 </style>

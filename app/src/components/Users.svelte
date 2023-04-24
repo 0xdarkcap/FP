@@ -1,17 +1,23 @@
 <!-- ChatLog.svelte -->
 <script>
   import { createIcon } from '@download/blockies';
-
-  let chatLogs = [
-    { id: 1, title: 'Chat 1' },
-    { id: 2, title: 'Chat 2' },
-    { id: 3, title: 'Chat 3' },
-  ];
+  import {userList} from '../../scripts/stores';
+  import {selectedChat} from '../../scripts/stores';
+  
+  let chatLogs = [];
+  
+  userList.subscribe(($userList) => {
+    chatLogs = $userList;
+  });
 
   let selectedChatId = null;
 
-  function selectChat(chatId) {
+  function selectChat(chatId,username) {
     selectedChatId = chatId;
+    selectedChat.set({
+      id:chatId,
+      user:username,
+    });
   }
 
   function generateBlockie(chatTitle) {
@@ -73,7 +79,7 @@
     <div
       class="chat-log"
       class:selected="{selectedChatId === chatLog.id}"
-      on:click="{() => selectChat(chatLog.id)}"
+      on:click="{() => selectChat(chatLog.id,chatLog.title)}"
     >
       <img src="{generateBlockie(chatLog.title)}" alt="blockie" />
       {chatLog.title}

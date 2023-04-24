@@ -1,55 +1,33 @@
 <!-- UsernameModal.svelte -->
 <script>
+  import {socketStore} from '../../scripts/stores'
+  import { registerUsername } from "../../scripts/utils";
   import { createEventDispatcher } from "svelte";
-  import { jsonToBinary, binaryToJson } from "./../../scripts/utils";
-
   const dispatch = createEventDispatcher();
-
   let username = "";
+  let socket;
+  
 
   async function submitUsername() {
-    const socket = new WebSocket("ws://localhost:8080/chat");
-    socket.binaryType = "arraybuffer";
     
-    // Listen for messages
+  socketStore.subscribe(($socket) => {
+    socket = $socket;
+    if(registerUsername(socket,username)){
+      dispatch("usernameSet");
+    }
+  });
     socket.addEventListener("message", (event) => {
-      if (event.data instanceof ArrayBuffer) {
-        // binary frame
-        const view = new DataView(event.data);
-        console.log(view.getInt32(0));
-      } else {
-        // text frame
-        console.log(event.data);
-      }
-    });
-    // Change binary type from "blob" to "arraybuffer"
-
-    /*    //const socket = new WebSocket('wss://echo.websocket.org');
-
-    
-    const socket = new WebSocket('ws://localhost:8080/chat');
-    socket.binaryType = "arraybuffer";
-      console.log(jsonToBinary(JSON.stringify({ action: 'setUsername', username })))
-      socket.onopen = () => {
-        socket.send(jsonToBinary(JSON.stringify({ action: 'setUsername', username })));
-      };
-  
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-  
-        if (data.status === 'success') {
-          localStorage.setItem('username', username);
-          socket.close();
-          dispatch('usernameSet');
+      console.log("Message from server: ", event.data);
+      const data = JSON.parse(event.data);
+      if(data.type=='registration'){
+        if (data.status === "success") {
+          localStorage.setItem("username", username);
         } else {
-          console.error('Error setting username:', data.message);
+          console.error("Error setting username:", data.message);
         }
-      };
-  
-      socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };*/
-  }
+      }
+  });
+}
 </script>
 
 <div class="overlay" />
